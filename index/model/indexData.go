@@ -77,6 +77,7 @@ func (data *IndexData) GetDocsPaths() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	file.Re
 
 	return nil, nil
 }
