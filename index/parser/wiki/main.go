@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lamzin/search-engine/index/model"
+	"github.com/lamzin/search-engine/index/model/doc"
 )
 
 func main() {
@@ -18,12 +18,15 @@ func main() {
 	fmt.Printf("Articles: %s\n", articles)
 	fmt.Printf("Engine root: %s\n", engineRoot)
 
-	indexData := model.NewIndexData(engineRoot)
-	defer indexData.Close()
+	docManager, err := doc.NewDocManager(engineRoot)
+	if err != nil {
+		panic(err.Error())
+	}
+	defer docManager.Close()
 
 	splitter := WikiArticlesSplitter{
-		Articles:  articles,
-		IndexData: indexData,
+		Articles:   articles,
+		docManager: docManager,
 	}
 
 	if err := split(&splitter); err != nil {
@@ -47,16 +50,15 @@ type Splitter interface {
 
 // WikiArticlesSplitter interface
 type WikiArticlesSplitter struct {
-	Articles  string
-	IndexData *model.IndexData
+	Articles   string
+	docManager *doc.DocManager
 
 	// stat
 	documents int
 	lines     int
 
-	// docs
-	curDocumentName string
-	curDocument     string
+	// doc
+	doc doc.Doc
 
 	// files
 	filePaths []string
@@ -75,23 +77,24 @@ func (s *WikiArticlesSplitter) Split() error {
 	for ; scanner.Scan(); s.lines++ {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "= ") {
-			if err := s.IndexData.DumpDocument(s.curDocumentName, s.curDocument); err != nil {
+			if err := s.docManager.DumpDocument(&s.doc); err != nil {
 				return err
 			}
 			s.documents++
-			s.curDocumentName = strings.TrimSpace(strings.Replace(line, "=", "", -1))
-			s.curDocument = s.curDocumentName
+			s.doc = doc.Doc{
+				DocInfo: doc.DocInfo{
+					Name: strings.TrimSpace(strings.Replace(line, "=", "", -1)),
+				},
+				Lines: []string{},
+			}
 		} else {
-			s.curDocument += "\n" + line
+			s.doc.AddLine(line)
 		}
 
 		if s.lines%10000 == 0 {
 			fmt.Printf("\rLines: %dM, docs: %d", s.lines/1000000, s.documents)
 		}
 
-		// if s.documents == 100 {
-		// 	break
-		// }
 	}
 
 	if err := scanner.Err(); err != nil {
