@@ -19,6 +19,7 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer writer.Close()
 	if err := writer.Run(); err != nil {
 		panic(err.Error())
 	}

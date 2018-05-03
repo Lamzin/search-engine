@@ -26,11 +26,20 @@ func NewInvertedIndexWriter(articlesPath string, indexPath string) (*InvertedInd
 		return nil, err
 	}
 
+	index, err := inverted.NewInvertedIndex(indexPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &InvertedIndexWriter{
 		docManager: docManager,
 		lexemizer:  lexemizer,
-		index:      inverted.NewInvertedIndex(indexPath),
+		index:      index,
 	}, nil
+}
+
+func (w *InvertedIndexWriter) Close() {
+	w.index.Close()
 }
 
 func (w *InvertedIndexWriter) Run() error {
@@ -40,7 +49,7 @@ func (w *InvertedIndexWriter) Run() error {
 	}
 
 	for i, info := range docInfos {
-		fmt.Printf("\rProgress %d/%d", i, len(docInfos))
+		fmt.Printf("Progress %d/%d\n", i, len(docInfos))
 		doc, err := w.docManager.GetByInfo(info)
 		if err != nil {
 			return err
