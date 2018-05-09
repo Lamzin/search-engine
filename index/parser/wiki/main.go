@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/lamzin/search-engine/index/model/doc"
 )
@@ -18,10 +16,7 @@ func main() {
 	fmt.Printf("Articles: %s\n", articles)
 	fmt.Printf("Engine root: %s\n", engineRoot)
 
-	docManager, err := doc.NewDocManager(engineRoot)
-	if err != nil {
-		panic(err.Error())
-	}
+	docManager := doc.NewDocFileManager(engineRoot)
 	defer docManager.Close()
 
 	splitter := WikiArticlesSplitter{
@@ -43,17 +38,11 @@ func split(splitter Splitter) error {
 
 type Splitter interface {
 	Split() error
-	DocumentsCount() int
-	LinesCount() int
 }
 
 type WikiArticlesSplitter struct {
 	Articles   string
-	docManager *doc.DocManager
-
-	// stat
-	documents int
-	lines     int
+	docManager doc.DocManager
 
 	// doc
 	doc doc.Doc
@@ -63,50 +52,18 @@ type WikiArticlesSplitter struct {
 }
 
 func (s *WikiArticlesSplitter) Split() error {
-	file, err := os.Open(s.Articles)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	var docReader doc.DocReader = doc.NewDocTxtReader(s.Articles)
+	defer docReader.Close()
 
-	scanner := bufio.NewScanner(file)
-
-	for ; scanner.Scan(); s.lines++ {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "= ") {
-			if err := s.docManager.DumpDocument(s.doc); err != nil {
-				fmt.Println(err.Error())
-			}
-			s.documents++
-			s.doc = doc.Doc{
-				DocInfo: doc.DocInfo{
-					Name: strings.TrimSpace(strings.Replace(line, " =", "", -1)),
-				},
-				Lines: []string{},
-			}
-		} else {
-			s.doc.AddLine(line)
+	for count := 0; docReader.Scan(); count++ {
+		d := docReader.Doc()
+		if err := s.docManager.DumpDocument(d); err != nil {
+			return err
 		}
-
-		if s.lines%10000 == 0 {
-			fmt.Printf("\rLines: %dM, docs: %d", s.lines/1000000, s.documents)
+		if count%1000 == 0 {
+			fmt.Printf("Docs: %d\n", count)
 		}
-
 	}
 
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// DocumentsCount return documents count
-func (s *WikiArticlesSplitter) DocumentsCount() int {
-	return s.documents
-}
-
-// LinesCount return total lines amount in articles
-func (s *WikiArticlesSplitter) LinesCount() int {
-	return s.lines
+	return docReader.Err()
 }

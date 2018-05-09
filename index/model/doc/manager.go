@@ -1,116 +1,60 @@
 package doc
 
 import (
-	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
+	"strconv"
 
-	"github.com/lamzin/search-engine/index/common"
+	"github.com/lamzin/search-engine/algos/compressor"
 )
 
-func NewDocManager(dataRoot string) (*DocManager, error) {
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		return nil, err
-	}
-	return &DocManager{
-		docFolerRoot:  dataRoot,
-		fileNameRegex: reg,
-	}, nil
+const (
+	chunkSize = 100
+)
+
+type DocManager interface {
+	DumpDocument(doc *Doc) error
+	Close() error
 }
 
-type DocManager struct {
-	docFolerRoot string
+type DocFileManager struct {
+	docRoot string
 
-	fileNameRegex *regexp.Regexp
-
-	docInfoList []DocInfo
+	docWriter DocWriter
+	comp      compressor.Compressor
+	chunks    int
 }
 
-func (data *DocManager) getDocPath(doc Doc) (string, string) {
-	fileName := data.fileNameRegex.ReplaceAllString(strings.ToLower(doc.Name), "")
-	if len(fileName) > 64 {
-		fileName = fileName[:64]
+func NewDocFileManager(docRoot string) *DocFileManager {
+	return &DocFileManager{
+		docRoot: docRoot,
+		comp:    &compressor.GzipCompressor{Level: compressor.BestCompression},
 	}
-
-	fileFolder := "_short"
-	if len(fileName) > 2 {
-		fileFolder = strings.ToLower(fileName[:2])
-	}
-	return fileFolder, filepath.Join(fileFolder, fileName+".txt")
 }
 
-func (data *DocManager) DumpDocument(doc Doc) error {
-	fileFolder, filePath := data.getDocPath(doc)
-
-	errFolder := os.Mkdir(filepath.Join(data.docFolerRoot, fileFolder), os.ModePerm)
-	if errFolder != nil && !strings.Contains(errFolder.Error(), "file exists") {
-		return errFolder
-	}
-
-	file, err := os.Create(filepath.Join(data.docFolerRoot, filePath))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if _, err := file.Write(doc.MustCompress()); err != nil {
-		return err
-	}
-
-	data.docInfoList = append(data.docInfoList, DocInfo{
-		ID:   len(data.docInfoList),
-		Name: doc.Name,
-		Path: filePath,
-	})
-	return nil
-}
-
-func (data *DocManager) Close() error {
-	file, err := os.Create(data.docInfoFilePath())
-	if err != nil {
-		return err
-	}
-
-	for _, doc := range data.docInfoList {
-		if _, err := file.WriteString(doc.String() + "\n"); err != nil {
+func (m *DocFileManager) DumpDocument(doc *Doc) error {
+	if m.docWriter == nil || (m.docWriter != nil && m.docWriter.Count() >= chunkSize) {
+		if err := m.newWriter(); err != nil {
 			return err
 		}
 	}
+	return m.docWriter.Write(doc)
+}
+
+func (m *DocFileManager) Close() error {
+	if m.docWriter != nil {
+		return m.docWriter.Close()
+	}
 	return nil
 }
 
-func (data *DocManager) GetAllList() ([]DocInfo, error) {
-	if len(data.docInfoList) > 0 {
-		return data.docInfoList, nil
-	}
-
-	lines, err := common.ReadFile(data.docInfoFilePath())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, line := range lines {
-		doc, err := DocInfoFromString(line)
-		if err != nil {
-			return nil, err
+func (m *DocFileManager) newWriter() error {
+	if m.docWriter != nil {
+		if err := m.docWriter.Close(); err != nil {
+			return err
 		}
-		data.docInfoList = append(data.docInfoList, *doc)
+		m.chunks++
 	}
-	return data.docInfoList, nil
-}
-
-func (data *DocManager) docInfoFilePath() string {
-	return filepath.Join(data.docFolerRoot, "docs.txt")
-}
-
-func (data *DocManager) GetByInfo(info DocInfo) (*Doc, error) {
-	lines, err := common.ReadFile(filepath.Join(data.docFolerRoot, info.Path))
-	if err != nil {
-		return nil, err
-	}
-	return &Doc{
-		DocInfo: info,
-		Lines:   lines,
-	}, nil
+	writer, err := NewCompressWriter(filepath.Join(m.docRoot, strconv.FormatInt((int64)(m.chunks), 10)), m.comp)
+	m.docWriter = writer
+	return err
 }

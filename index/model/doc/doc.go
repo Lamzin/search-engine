@@ -55,7 +55,7 @@ func (doc *Doc) AddLine(line string) {
 }
 
 func (doc *Doc) String() string {
-	return strings.Join(append([]string{doc.Name, "\n"}, doc.Lines...), "\n")
+	return strings.Join(doc.Lines, "\n")
 }
 
 func (doc *Doc) MustCompress() []byte {
