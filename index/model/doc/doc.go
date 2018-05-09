@@ -4,10 +4,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/lamzin/search-engine/algos/compressor"
 )
 
 const (
 	separator = " ### "
+)
+
+var (
+	gzip = compressor.GzipCompressor{}
 )
 
 type DocInfo struct {
@@ -50,4 +56,12 @@ func (doc *Doc) AddLine(line string) {
 
 func (doc *Doc) String() string {
 	return strings.Join(append([]string{doc.Name, "\n"}, doc.Lines...), "\n")
+}
+
+func (doc *Doc) MustCompress() []byte {
+	compressed, err := gzip.Compress([]byte(doc.String()))
+	if err != nil {
+		panic(err)
+	}
+	return compressed
 }

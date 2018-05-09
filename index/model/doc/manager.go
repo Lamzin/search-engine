@@ -28,7 +28,7 @@ type DocManager struct {
 	docInfoList []DocInfo
 }
 
-func (data *DocManager) getDocPath(doc *Doc) (string, string) {
+func (data *DocManager) getDocPath(doc Doc) (string, string) {
 	fileName := data.fileNameRegex.ReplaceAllString(strings.ToLower(doc.Name), "")
 	if len(fileName) > 64 {
 		fileName = fileName[:64]
@@ -41,7 +41,7 @@ func (data *DocManager) getDocPath(doc *Doc) (string, string) {
 	return fileFolder, filepath.Join(fileFolder, fileName+".txt")
 }
 
-func (data *DocManager) DumpDocument(doc *Doc) error {
+func (data *DocManager) DumpDocument(doc Doc) error {
 	fileFolder, filePath := data.getDocPath(doc)
 
 	errFolder := os.Mkdir(filepath.Join(data.docFolerRoot, fileFolder), os.ModePerm)
@@ -54,7 +54,7 @@ func (data *DocManager) DumpDocument(doc *Doc) error {
 		return err
 	}
 	defer file.Close()
-	if _, err := file.WriteString(doc.String()); err != nil {
+	if _, err := file.Write(doc.MustCompress()); err != nil {
 		return err
 	}
 

@@ -41,14 +41,12 @@ func split(splitter Splitter) error {
 	return nil
 }
 
-// Splitter interface
 type Splitter interface {
 	Split() error
 	DocumentsCount() int
 	LinesCount() int
 }
 
-// WikiArticlesSplitter interface
 type WikiArticlesSplitter struct {
 	Articles   string
 	docManager *doc.DocManager
@@ -64,7 +62,6 @@ type WikiArticlesSplitter struct {
 	filePaths []string
 }
 
-// Split huge documents into many small
 func (s *WikiArticlesSplitter) Split() error {
 	file, err := os.Open(s.Articles)
 	if err != nil {
@@ -77,13 +74,13 @@ func (s *WikiArticlesSplitter) Split() error {
 	for ; scanner.Scan(); s.lines++ {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "= ") {
-			if err := s.docManager.DumpDocument(&s.doc); err != nil {
-				return err
+			if err := s.docManager.DumpDocument(s.doc); err != nil {
+				fmt.Println(err.Error())
 			}
 			s.documents++
 			s.doc = doc.Doc{
 				DocInfo: doc.DocInfo{
-					Name: strings.TrimSpace(strings.Replace(line, "=", "", -1)),
+					Name: strings.TrimSpace(strings.Replace(line, " =", "", -1)),
 				},
 				Lines: []string{},
 			}
