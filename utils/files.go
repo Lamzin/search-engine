@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,18 @@ func ReadFile(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-func AppendFile(path string, data string) error {
+func ReadFileBytes(path string) ([]byte, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		file, err := os.OpenFile(path, os.O_CREATE, 0666)
+		defer file.Close()
+		return []byte{}, err
+	}
+
+	bytes, err := ioutil.ReadFile(path)
+	return bytes, err
+}
+
+func AppendFile(path string, data []byte) error {
 	fileFolder, _ := filepath.Split(path)
 
 	errFolder := os.Mkdir(fileFolder, os.ModePerm)
@@ -38,6 +50,24 @@ func AppendFile(path string, data string) error {
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(data)
+	_, err = file.Write(data)
+	return err
+}
+
+func WriteFile(path string, data []byte) error {
+	fileFolder, _ := filepath.Split(path)
+
+	errFolder := os.Mkdir(fileFolder, os.ModePerm)
+	if errFolder != nil && !strings.Contains(errFolder.Error(), "file exists") {
+		return errFolder
+	}
+
+	file, err := os.OpenFile(path, os.O_RDONLY|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Write(data)
 	return err
 }
