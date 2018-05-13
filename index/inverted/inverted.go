@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"encoding/binary"
 
 	"github.com/lamzin/search-engine/index/common"
 	"github.com/lamzin/search-engine/index/model/doc"
@@ -44,6 +45,10 @@ func (i *InvertedIndex) GetDocIDs(token string) ([]int, error) {
 }
 
 func (i *InvertedIndex) AddToken(info *doc.DocInfo, token string) error {
+	bs := make([]byte, 4)
+    binary.LittleEndian.PutUint32(bs, uint32(info.ID))
+	
 	_, filePath := common.FilePath(token)
-	return common.AppendFile(filepath.Join(i.IndexPath, filePath), fmt.Sprintf("%d ", info.ID))
+	// return common.AppendFile(filepath.Join(i.IndexPath, filePath), fmt.Sprintf("%d", info.ID))
+	return common.AppendFile(filepath.Join(i.IndexPath, filePath), string(bs))
 }

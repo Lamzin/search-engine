@@ -18,6 +18,7 @@ type DocReader interface {
 }
 
 type DocTxtReader struct {
+	filePath string
 	file     *os.File
 	scanner  *bufio.Scanner
 	finished bool
@@ -37,6 +38,12 @@ func NewDocTxtReader(docPath string) *DocTxtReader {
 }
 
 func (r *DocTxtReader) Scan() bool {
+	if r.file == nil {
+		r.file, r.err = os.Open(r.filePath)
+		if r.file != nil {
+			r.scanner = bufio.NewScanner(r.file)
+		}
+	}
 	return r.err == nil && !r.finished
 }
 
