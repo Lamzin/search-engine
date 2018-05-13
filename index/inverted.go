@@ -1,14 +1,14 @@
-package inverted
+package index
 
 import (
+	"encoding/binary"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"encoding/binary"
 
-	"github.com/lamzin/search-engine/index/common"
-	"github.com/lamzin/search-engine/index/model/doc"
+	"github.com/lamzin/search-engine/doc"
+	"github.com/lamzin/search-engine/utils"
 )
 
 type InvertedIndex struct {
@@ -22,9 +22,9 @@ func NewInvertedIndex(indexPath string) *InvertedIndex {
 }
 
 func (i *InvertedIndex) GetDocIDs(token string) ([]int, error) {
-	_, filePath := common.FilePath(token)
+	_, filePath := utils.FilePath(token)
 
-	lines, err := common.ReadFile(filepath.Join(i.IndexPath, filePath))
+	lines, err := utils.ReadFile(filepath.Join(i.IndexPath, filePath))
 	if err != nil {
 		return nil, err
 	}
@@ -46,9 +46,9 @@ func (i *InvertedIndex) GetDocIDs(token string) ([]int, error) {
 
 func (i *InvertedIndex) AddToken(info *doc.DocInfo, token string) error {
 	bs := make([]byte, 4)
-    binary.LittleEndian.PutUint32(bs, uint32(info.ID))
-	
-	_, filePath := common.FilePath(token)
-	// return common.AppendFile(filepath.Join(i.IndexPath, filePath), fmt.Sprintf("%d", info.ID))
-	return common.AppendFile(filepath.Join(i.IndexPath, filePath), string(bs))
+	binary.LittleEndian.PutUint32(bs, uint32(info.ID))
+
+	_, filePath := utils.FilePath(token)
+	// return utils.AppendFile(filepath.Join(i.IndexPath, filePath), fmt.Sprintf("%d", info.ID))
+	return utils.AppendFile(filepath.Join(i.IndexPath, filePath), string(bs))
 }

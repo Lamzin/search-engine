@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lamzin/search-engine/algos/compressor"
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 type DocWriter interface {
@@ -16,12 +16,12 @@ type DocWriter interface {
 
 type DocCompressWriter struct {
 	file   *os.File
-	comp   compressor.Compressor
+	comp   textcompressor.Compressor
 	buffer bytes.Buffer
 	count  int
 }
 
-func NewCompressWriter(filePath string, comp compressor.Compressor) (*DocCompressWriter, error) {
+func NewCompressWriter(filePath string, comp textcompressor.Compressor) (*DocCompressWriter, error) {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return nil, err

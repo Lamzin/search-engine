@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/lamzin/search-engine/algos/compressor"
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 const (
@@ -20,14 +20,14 @@ type DocFileManager struct {
 	docRoot string
 
 	docWriter DocWriter
-	comp      compressor.Compressor
+	comp      textcompressor.Compressor
 	chunks    int
 }
 
 func NewDocFileManager(docRoot string) *DocFileManager {
 	return &DocFileManager{
 		docRoot: docRoot,
-		comp:    &compressor.GzipCompressor{Level: compressor.BestCompression},
+		comp:    &textcompressor.GzipCompressor{Level: textcompressor.BestCompression},
 	}
 }
 

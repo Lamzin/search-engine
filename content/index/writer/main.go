@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lamzin/search-engine/index/inverted"
-	"github.com/lamzin/search-engine/index/inverted/writer/lib"
-	"github.com/lamzin/search-engine/index/model/doc"
+	"github.com/lamzin/search-engine/doc"
+	"github.com/lamzin/search-engine/index"
+	"github.com/lamzin/search-engine/algos/lexeme"
 )
 
 func main() {
@@ -19,9 +19,9 @@ func main() {
 
 	iterator := doc.NewDocAllIterator(articlesPath)
 
-	lexemizer := lib.NewLexemizer()
+	lexemizer := lexeme.NewParser()
 
-	index := inverted.NewInvertedIndex(indexPath)
+	ind := index.NewInvertedIndex(indexPath)
 
 	tokensCount := 0
 	for i := 0; iterator.Scan(); i++ {
@@ -31,7 +31,7 @@ func main() {
 		// fmt.Println(d.String())
 		// fmt.Println(tokens)
 		for _, token := range tokens {
-			if err := index.AddToken(&d.DocInfo, token); err != nil {
+			if err := ind.AddToken(&d.DocInfo, token); err != nil {
 				fmt.Println("error adding token:", err)
 				return
 			}

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/lamzin/search-engine/algos/compressor"
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 type DocAllIterator struct {
@@ -51,7 +51,7 @@ func (r *DocAllIterator) Scan() bool {
 		}
 	}
 	if len(r.files) > 0 {
-		r.docReader = NewDocCompressedReader(filepath.Join(r.docRoot, r.files[0].Name()), compressor.GzipCompressor{})
+		r.docReader = NewDocCompressedReader(filepath.Join(r.docRoot, r.files[0].Name()), textcompressor.GzipCompressor{})
 		r.docNumber, r.err = strconv.Atoi(r.files[0].Name())
 		r.docReaderIndex = 0
 		r.files = r.files[1:]

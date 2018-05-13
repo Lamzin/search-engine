@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lamzin/search-engine/algos/compressor"
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 type DocReader interface {
@@ -87,12 +87,12 @@ type DocCompressedReader struct {
 	docs     []*Doc
 	docIndex int
 
-	comp compressor.Compressor
+	comp textcompressor.Compressor
 
 	err error
 }
 
-func NewDocCompressedReader(docPath string, comp compressor.Compressor) *DocCompressedReader {
+func NewDocCompressedReader(docPath string, comp textcompressor.Compressor) *DocCompressedReader {
 	return &DocCompressedReader{
 		filePath: docPath,
 		comp:     comp,

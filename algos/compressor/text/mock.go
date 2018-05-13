@@ -1,4 +1,4 @@
-package compressor
+package textcompressor
 
 type MockCompressor struct {
 }

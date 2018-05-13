@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/lamzin/search-engine/index/model/doc"
+	"github.com/lamzin/search-engine/doc"
 )
 
 func main() {

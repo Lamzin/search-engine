@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lamzin/search-engine/algos/compressor"
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	gzip = compressor.GzipCompressor{}
+	gzip = textcompressor.GzipCompressor{}
 )
 
 type DocInfo struct {
