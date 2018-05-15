@@ -21,7 +21,8 @@ func main() {
 
 	lexemizer := lexeme.NewParser()
 
-	var index indexwriter.Writer = indexwriter.NewMultiLexemePerFile(indexPath)
+	// var index indexwriter.Writer = indexwriter.NewMultiLexemePerFile(indexPath)
+	var index indexwriter.Writer = indexwriter.NewIndexDBWriter(indexPath)
 
 	tokenStat := make(map[string]int, 0)
 
