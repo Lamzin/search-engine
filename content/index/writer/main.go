@@ -6,6 +6,7 @@ import (
 
 	"github.com/lamzin/search-engine/algos/lexeme"
 	"github.com/lamzin/search-engine/doc"
+	"github.com/lamzin/search-engine/index/writer"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 
 	lexemizer := lexeme.NewParser()
 
-	// var index indexwriter.Writer = indexwriter.NewMultiLexemePerFile(indexPath)
+	var index indexwriter.Writer = indexwriter.NewMultiLexemePerFile(indexPath)
 
 	tokenStat := make(map[string]int, 0)
 
@@ -33,10 +34,10 @@ func main() {
 		// fmt.Println(tokens)
 		for _, token := range tokens {
 			tokenStat[token]++
-			// if err := index.AddLexeme(d.DocInfo.ID, token); err != nil {
-			// 	fmt.Println("error adding token:", err)
-			// 	return
-			// }
+			if err := index.AddLexeme(d.DocInfo.ID, token); err != nil {
+				fmt.Println("error adding token:", err)
+				return
+			}
 			tokensCount++
 		}
 		fmt.Printf("\rdocs: %d, tokens: %d", i, tokensCount)
@@ -45,12 +46,16 @@ func main() {
 		}
 	}
 
+	leng := 0
 	for k, v := range tokenStat {
 		fmt.Println(k, v)
+		leng += len(k)
 	}
 
 	fmt.Println("unique tokens:", len(tokenStat))
+	fmt.Println("tokens:", tokensCount)
 	fmt.Println("average tokens:", tokensCount/len(tokenStat))
+	fmt.Println("length tokens:", leng)
 
 	fmt.Printf("lexemizer stat: all - %.3f -> unique %.3f -> words only %.3f -> long words %.3f -> stem %.3f\n",
 		float64(lexemizer.StatAll)/float64(lexemizer.StatAll),
