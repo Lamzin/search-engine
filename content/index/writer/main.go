@@ -42,7 +42,7 @@ func main() {
 			tokensCount++
 		}
 		fmt.Printf("\rdocs: %d, tokens: %d", i, tokensCount)
-		if i == 20000 {
+		if i == 100000 {
 			break
 		}
 	}
