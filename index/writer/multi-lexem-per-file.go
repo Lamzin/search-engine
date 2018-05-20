@@ -18,16 +18,21 @@ type MultiLexemePerFile struct {
 	lexemeToFile map[string]int
 	fileToLexeme [][]string
 	fileSizes    []int
+
+	lock chan bool
 }
 
 func NewMultiLexemePerFile(indexPath string) *MultiLexemePerFile {
 	return &MultiLexemePerFile{
 		indexPath:    indexPath,
 		lexemeToFile: make(map[string]int, 0),
+		lock:         make(chan bool, 1),
 	}
 }
 
 func (w *MultiLexemePerFile) AddLexeme(docID int, lexeme string) error {
+	w.lock<-true
+	
 	file := w.getFileID(lexeme)
 	bytes, err := utils.ReadFileBytes(filepath.Join(w.indexPath, strconv.Itoa(file)))
 	if err != nil {
@@ -59,7 +64,9 @@ func (w *MultiLexemePerFile) AddLexeme(docID int, lexeme string) error {
 		return err
 	}
 	w.fileSizes[file] = len(bytes)
-	return utils.WriteFile(filepath.Join(w.indexPath, strconv.Itoa(file)), bytes)
+	err = utils.WriteFile(filepath.Join(w.indexPath, strconv.Itoa(file)), bytes)
+	<-w.lock
+	return err
 }
 
 func (w *MultiLexemePerFile) Close() error {

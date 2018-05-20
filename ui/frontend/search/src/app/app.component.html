@@ -1,0 +1,15 @@
+<div class="search">
+  <h3>
+    <mat-form-field class="search-query">
+      <input 
+        [(ngModel)]="query" 
+        matInput 
+        placeholder="Query to search" 
+        (keydown.enter)="sendSearchRequest()"
+      >
+    </mat-form-field>
+  </h3>
+  <div *ngFor="let result of results">
+    <mat-card class="search-result">{{result}}</mat-card>
+  </div>
+</div>

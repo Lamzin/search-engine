@@ -1,0 +1,14 @@
+.search {
+    max-width: 900px;
+    width: 95%;
+    margin: auto;
+}
+
+.search-query {
+    width: 100%;
+}
+
+.search-result {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}

@@ -1,9 +1,12 @@
 package indexwriter
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/lamzin/search-engine/index/common"
 )
 
 const (
@@ -11,11 +14,6 @@ const (
 	maxFiles    = 26
 	queueSize   = 1024 * 10
 )
-
-type LexemeInfo struct {
-	Positions  []int
-	LastLength int
-}
 
 type lexemeWriteTask struct {
 	DocID    int
@@ -25,18 +23,20 @@ type lexemeWriteTask struct {
 type IndexDBWriter struct {
 	indexPath string
 
-	lexemeInfo map[string]*LexemeInfo
+	lexemeInfo map[string]*indexcommon.LexemeInfo
 
 	fileSizes  []int
 	files      []*os.File
 	queues     []chan lexemeWriteTask
 	workerStop chan bool
+
+	lock chan bool
 }
 
 func NewIndexDBWriter(indexPath string) *IndexDBWriter {
 	w := &IndexDBWriter{
 		indexPath:  indexPath,
-		lexemeInfo: make(map[string]*LexemeInfo, 0),
+		lexemeInfo: make(map[string]*indexcommon.LexemeInfo, 0),
 	}
 	w.start()
 	return w
@@ -46,6 +46,7 @@ func (w *IndexDBWriter) start() {
 	w.fileSizes = make([]int, maxFiles)
 	w.files = make([]*os.File, maxFiles)
 	w.workerStop = make(chan bool, maxFiles)
+	w.lock = make(chan bool, 1)
 	for i := 0; i < maxFiles; i++ {
 		w.queues = append(w.queues, make(chan lexemeWriteTask, queueSize))
 		go w.worker(i)
@@ -61,8 +62,6 @@ func (w *IndexDBWriter) worker(fileInt int) {
 	w.files[fileInt] = file
 
 	for task := range w.queues[fileInt] {
-		// fmt.Println(fileInt, len(w.queues[fileInt]))
-
 		bytes, err := bigEndian.Compress([]int{task.DocID})
 		if err != nil {
 			panic(err)
@@ -76,10 +75,11 @@ func (w *IndexDBWriter) worker(fileInt int) {
 	w.workerStop <- true
 }
 
-func (w *IndexDBWriter) findFileAndPosition(lexeme string) (file int, info *LexemeInfo) {
+func (w *IndexDBWriter) findFileAndPosition(lexeme string) (file int, info *indexcommon.LexemeInfo) {
 	info, ok := w.lexemeInfo[lexeme]
 	if !ok {
-		info = &LexemeInfo{
+		info = &indexcommon.LexemeInfo{
+			Lexeme:     lexeme,
 			Positions:  []int{w.fileSizes[0]},
 			LastLength: 0,
 		}
@@ -122,22 +122,51 @@ func (w *IndexDBWriter) writeDocID(docID int, fileInt int, position int) error {
 }
 
 func (w *IndexDBWriter) AddLexeme(docID int, lexeme string) error {
-	file, info := w.findFileAndPosition(lexeme)
+	w.lock <- true
 
-	// err := w.writeDocID(docID, file, info.Positions[len(info.Positions)-1])
-	// if err != nil {
-	// 	return err
-	// }
+	file, info := w.findFileAndPosition(lexeme)
 
 	w.queues[file] <- lexemeWriteTask{
 		DocID:    docID,
-		Position: info.Positions[len(info.Positions)-1],
+		Position: info.Positions[len(info.Positions)-1] + info.LastLength,
 	}
 
 	info.LastLength += 4
 	if w.fileSizes[file] == info.Positions[len(info.Positions)-1] {
-		w.fileSizes[file] += 4
+		w.fileSizes[file] += startBuffer << (uint)(len(info.Positions)-1)
 	}
+	<-w.lock
+	return nil
+}
+
+func (w *IndexDBWriter) dumpLexemeInfo() error {
+	fmt.Println("\nDumping lexeme info")
+	file, err := os.OpenFile(filepath.Join(w.indexPath, "lexeme"), os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	totalBytes := 0
+
+	for _, v := range w.lexemeInfo {
+		fmt.Println("write:", v.Lexeme, v.Positions, v.LastLength)
+		bytes := v.Bytes()
+		lenBytes, _ := bigEndian.Compress([]int{len(bytes)})
+		fmt.Println("len bytes:", len(bytes), lenBytes)
+
+		totalBytes += len(bytes) + len(lenBytes)
+
+		if _, err := file.Write(lenBytes); err != nil {
+			return err
+		}
+		if _, err := file.Write(bytes); err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("Total bytes:", totalBytes)
+
 	return nil
 }
 
@@ -145,11 +174,15 @@ func (w *IndexDBWriter) Close() error {
 	for i := 0; i < maxFiles; i++ {
 		close(w.queues[i])
 	}
+	for i := 0; i < maxFiles; i++ {
+		<-w.workerStop
+	}
 	for _, file := range w.files {
 		file.Close()
 	}
-	for i := 0; i < maxFiles; i++ {
-		<-w.workerStop
+	if err := w.dumpLexemeInfo(); err != nil {
+		fmt.Println("dumping error:", err.Error())
+		return err
 	}
 	return nil
 }

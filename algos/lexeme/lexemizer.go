@@ -51,7 +51,8 @@ func (l *Parser) all() {
 func (l *Parser) wordsOnly() {
 	for i := 0; i < len(l.lexemes); i++ {
 		if !wordRegEx.MatchString(l.lexemes[i]) {
-			l.lexemes = append(l.lexemes[:i], l.lexemes[i+1:]...)
+			l.lexemes[i] = l.lexemes[len(l.lexemes)-1]
+			l.lexemes = l.lexemes[:len(l.lexemes)-1]
 			i--
 		}
 	}
@@ -60,19 +61,26 @@ func (l *Parser) wordsOnly() {
 func (l *Parser) longWords() {
 	for i := 0; i < len(l.lexemes); i++ {
 		if len(l.lexemes[i]) < 3 {
-			l.lexemes = append(l.lexemes[:i], l.lexemes[i+1:]...)
+			l.lexemes[i] = l.lexemes[len(l.lexemes)-1]
+			l.lexemes = l.lexemes[:len(l.lexemes)-1]
 			i--
 		}
 	}
 }
 
 func (l *Parser) unique() {
+	unique := make(map[string]struct{}, 0)
+
 	sort.Strings(l.lexemes)
-	for i := 1; i < len(l.lexemes); i++ {
-		if l.lexemes[i] == l.lexemes[i-1] {
-			l.lexemes = append(l.lexemes[:i], l.lexemes[i+1:]...)
-			i--
-		}
+	for _, lexeme := range l.lexemes {
+		unique[lexeme] = struct{}{}
+	}
+	l.lexemes = l.lexemes[:len(unique)]
+
+	i := 0
+	for lexeme := range unique {
+		l.lexemes[i] = lexeme
+		i++
 	}
 }
 
