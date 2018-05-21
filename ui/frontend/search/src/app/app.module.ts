@@ -8,6 +8,8 @@ import {
   MatFormFieldModule,
   MatCardModule
 } from '@angular/material';
+import {MatPaginatorModule} from '@angular/material/paginator';
+
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 
 import { HttpClientModule } from '@angular/common/http'
@@ -20,7 +22,8 @@ import { AppComponent } from './app.component';
   ],
   imports: [
     FormsModule,
-    BrowserModule, MatFormFieldModule, MatInputModule, MatCardModule,
+    BrowserModule, 
+    MatFormFieldModule, MatInputModule, MatCardModule, MatPaginatorModule,
     BrowserAnimationsModule,
     HttpClientModule
   ],

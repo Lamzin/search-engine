@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 
 import { HttpClient } from '@angular/common/http';
+import { PageEvent } from '@angular/material';
 
 @Component({
   selector: 'app-root',
@@ -24,6 +25,10 @@ export class AppComponent {
           this.results = [];
         }
       );
+  }
+
+  onPageEvent(event: PageEvent) {
+    console.log(event);
   }
 
 }

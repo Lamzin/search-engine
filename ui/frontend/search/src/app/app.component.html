@@ -9,7 +9,14 @@
       >
     </mat-form-field>
   </h3>
-  <div *ngFor="let result of results">
-    <mat-card class="search-result">{{result}}</mat-card>
+  <div *ngIf="results.length > 0">
+    <div *ngFor="let result of results">
+      <mat-card class="search-result">{{result}}</mat-card>
+    </div>
+    <mat-paginator [length]="length"
+                  [pageSize]="pageSize"
+                  [pageSizeOptions]="pageSizeOptions"
+                  (page)="onPageEvent($event)">
+    </mat-paginator>
   </div>
 </div>
