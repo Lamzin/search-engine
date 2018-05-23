@@ -12,14 +12,19 @@ export class AppComponent {
   title = 'app';
   query = '';
   results = [];
+  resultsCount = 0;
 
   constructor(private http: HttpClient) {}
 
-  sendSearchRequest() {
-    console.log('http://localhost:8080/search?query=' + this.query);
-    this.http.get('http://localhost:8080/search?query=' + this.query)
+  sendSearchRequest(page: number = 0, pageSize: number=10) {
+    var url = `http://localhost:8080/search?query=${this.query};skip=${page*pageSize};limit=${pageSize}`;
+    console.log(url);
+    this.http.get(url)
       .subscribe(
-        (results: string[]) => this.results = results,
+        (response: any) => {
+          this.results = response.results;
+          this.resultsCount = response.results_count;
+        },
         error => {
           console.log(error);
           this.results = [];
@@ -29,6 +34,7 @@ export class AppComponent {
 
   onPageEvent(event: PageEvent) {
     console.log(event);
+    this.sendSearchRequest(event.pageIndex, event.pageSize);
   }
 
 }

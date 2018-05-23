@@ -23,6 +23,12 @@ var (
 	parser *lexeme.Parser = lexeme.NewParser()
 )
 
+type searchResult struct {
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	ShortBody string `json:"short_body"`
+}
+
 func main() {
 	if len(os.Args) != 3 {
 		panic("usage: cmd path/to/articles path/to/index")
@@ -55,12 +61,28 @@ func search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	texts, err := findDoc(query[0])
+	fmt.Println(r.URL.Query())
+
+	skip, _ := strconv.Atoi(r.URL.Query()["skip"][0])
+	limit, _ := strconv.Atoi(r.URL.Query()["limit"][0])
+
+	docs, count, err := findDoc(query[0], skip, limit)
 	if err != nil {
 		panic(err)
 	}
+	results := make([]searchResult, len(docs))
+	for i, d := range docs {
+		results[i].ID = d.ID
+		results[i].Title = d.Name
+		results[i].ShortBody = d.String()[:200]
+	}
 
-	js, err := json.Marshal(texts)
+	response := map[string]interface{}{
+		"results_count": count,
+		"results":       results,
+	}
+
+	js, err := json.Marshal(response)
 	if err != nil {
 		panic(err)
 	}
@@ -78,7 +100,7 @@ func initIndex() {
 	fmt.Println("index ready")
 }
 
-func findDoc(text string) ([]string, error) {
+func findDoc(text string, skip int, limit int) ([]*doc.Doc, int, error) {
 	lexemes := parser.Parse(text)
 	fmt.Println(text, "-->", lexemes)
 
@@ -86,9 +108,10 @@ func findDoc(text string) ([]string, error) {
 
 	docIDs, err := index.GetDocIDs(lexeme)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	docIDs = docIDs[:10]
+	docCount := len(docIDs)
+	docIDs = docIDs[skip : skip+limit]
 	fmt.Println("doc ids:", docIDs)
 
 	var docs []*doc.Doc
@@ -108,16 +131,11 @@ func findDoc(text string) ([]string, error) {
 		docreader.Close()
 
 		if err := docreader.Err(); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if !found {
-			return nil, fmt.Errorf("doc not found: %d", docID)
+			return nil, 0, fmt.Errorf("doc not found: %d", docID)
 		}
 	}
-
-	var texts []string
-	for _, d := range docs {
-		texts = append(texts, d.String()[:500])
-	}
-	return texts, nil
+	return docs, docCount, nil
 }
