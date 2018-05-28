@@ -41,6 +41,21 @@ func (l *Parser) Parse(text string) []string {
 	l.StatLongWords += len(l.lexemes)
 	l.stem()
 	l.StatStem += len(l.lexemes)
+	l.unique()
+	// l.StatUnique += len(l.lexemes)
+	return l.lexemes
+}
+
+func (l *Parser) ParseDuplicates(text string) []string {
+	l.text = text
+	l.all()
+	l.StatAll += len(l.lexemes)
+	l.wordsOnly()
+	l.StatWordsOnly += len(l.lexemes)
+	l.longWords()
+	l.StatLongWords += len(l.lexemes)
+	l.stem()
+	l.StatStem += len(l.lexemes)
 	return l.lexemes
 }
 
@@ -88,5 +103,4 @@ func (l *Parser) stem() {
 	for i := 0; i < len(l.lexemes); i++ {
 		l.lexemes[i] = porterstemmer.StemString(l.lexemes[i])
 	}
-	l.unique()
 }

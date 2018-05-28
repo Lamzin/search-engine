@@ -26,6 +26,25 @@ type IndexDBReader struct {
 	lock chan bool
 }
 
+type Pair struct {
+	Value string
+	Key   int
+}
+
+type ByKey []Pair
+
+func (s ByKey) Len() int {
+	return len(s)
+}
+
+func (s ByKey) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s ByKey) Less(i, j int) bool {
+	return s[i].Key < s[j].Key
+}
+
 func NewDBReader(indexPath string) (*IndexDBReader, error) {
 	file, err := os.Open(filepath.Join(indexPath, "lexeme"))
 	if err != nil {
@@ -45,6 +64,8 @@ func NewDBReader(indexPath string) (*IndexDBReader, error) {
 
 	lexemeInfo := make(map[string]*indexcommon.LexemeInfo)
 
+	stat := make([]Pair, 0)
+
 	for i := 0; i < len(content); i += 4 {
 		numbers, err := bigEndian.Decompress(content[i : i+4])
 		if err != nil {
@@ -56,7 +77,17 @@ func NewDBReader(indexPath string) (*IndexDBReader, error) {
 		}
 		lexemeInfo[info.Lexeme] = info
 		i += numbers[0]
+
+		stat = append(stat, Pair{
+			Key:   (1 << (uint)(len(info.Positions))) - 1 + info.LastLength,
+			Value: info.Lexeme,
+		})
 	}
+
+	// sort.Sort(ByKey(stat))
+	// for _, item := range stat {
+	// fmt.Println(item.Key, item.Value)
+	// }
 
 	files := make([]*os.File, maxFiles)
 	for i := 0; i < maxFiles; i++ {

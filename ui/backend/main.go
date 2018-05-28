@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 
 	"github.com/lamzin/search-engine/algos/compressor/text"
 	"github.com/lamzin/search-engine/algos/lexeme"
+	"github.com/lamzin/search-engine/algos/postings"
 	"github.com/lamzin/search-engine/doc"
 	"github.com/lamzin/search-engine/index/reader"
 )
@@ -104,25 +106,33 @@ func findDoc(text string, skip int, limit int) ([]*doc.Doc, int, error) {
 	lexemes := parser.Parse(text)
 	fmt.Println(text, "-->", lexemes)
 
-	lexeme := lexemes[0]
-
-	docIDs, err := index.GetDocIDs(lexeme)
-	if err != nil {
-		return nil, 0, err
+	postingsLists := make([][]int, 0)
+	for _, lexeme := range lexemes {
+		docIDs, err := index.GetDocIDs(lexeme)
+		if err != nil {
+			return nil, 0, err
+		}
+		postingsLists = append(postingsLists, docIDs)
 	}
-	docCount := len(docIDs)
-	docIDs = docIDs[skip : skip+limit]
-	fmt.Println("doc ids:", docIDs)
+
+	docFrequency := postings.Intersect(postingsLists)
+
+	// statDocs(docIDs, lexeme)
+
+	docCount := len(docFrequency)
+	docFrequency = docFrequency[skip : skip+limit]
+
+	fmt.Println(docFrequency)
 
 	var docs []*doc.Doc
 
-	for _, docID := range docIDs {
+	for _, freq := range docFrequency {
 		found := false
-		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa(docID/100)), textcompressor.GzipCompressor{})
+		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa(freq.DocID/100)), textcompressor.GzipCompressor{})
 		for i := 0; docreader.Scan(); i++ {
 			d := docreader.Doc()
-			if i == docID%100 {
-				d.ID = docID
+			if i == freq.DocID%100 {
+				d.ID = freq.DocID
 				docs = append(docs, d)
 				found = true
 				break
@@ -134,8 +144,66 @@ func findDoc(text string, skip int, limit int) ([]*doc.Doc, int, error) {
 			return nil, 0, err
 		}
 		if !found {
-			return nil, 0, fmt.Errorf("doc not found: %d", docID)
+			return nil, 0, fmt.Errorf("doc not found: %d", freq.DocID)
 		}
 	}
 	return docs, docCount, nil
+}
+
+type Pair struct {
+	Value string
+	Key   int
+}
+
+type ByKey []Pair
+
+func (s ByKey) Len() int {
+	return len(s)
+}
+
+func (s ByKey) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s ByKey) Less(i, j int) bool {
+	return s[i].Key < s[j].Key
+}
+
+func statDocs(docIDs []int, lex string) {
+	if len(docIDs) > 1000 {
+		docIDs = docIDs[:1000]
+	}
+
+	parser := lexeme.NewParser()
+
+	pairs := make([]Pair, 0)
+
+	for ii, docID := range docIDs {
+		fmt.Printf("\r%d doc...", ii)
+		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa(docID/100)), textcompressor.GzipCompressor{})
+		var d *doc.Doc
+		for i := 0; docreader.Scan(); i++ {
+			d = docreader.Doc()
+			if i == docID%100 {
+				break
+			}
+		}
+		docreader.Close()
+
+		lesx := parser.ParseDuplicates(d.String())
+		count := 0
+		for _, l := range lesx {
+			if l == lex {
+				count++
+			}
+		}
+		pairs = append(pairs, Pair{Key: count, Value: d.Name})
+	}
+
+	sort.Sort(ByKey(pairs))
+
+	for _, p := range pairs {
+		fmt.Println(p.Key, p.Value)
+	}
+
 }
