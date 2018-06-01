@@ -12,8 +12,8 @@ import (
 type DocAllIterator struct {
 	docRoot        string
 	docReader      DocReader
-	docNumber      int
-	docReaderIndex int
+	docNumber      uint32
+	docReaderIndex uint32
 
 	files []os.FileInfo
 
@@ -52,8 +52,9 @@ func (r *DocAllIterator) Scan() bool {
 	}
 	if len(r.files) > 0 {
 		r.docReader = NewDocCompressedReader(filepath.Join(r.docRoot, r.files[0].Name()), textcompressor.GzipCompressor{})
-		r.docNumber, r.err = strconv.Atoi(r.files[0].Name())
-		r.docReaderIndex = 0
+		docNumber, err := strconv.Atoi(r.files[0].Name())
+		r.docNumber, r.err = uint32(docNumber), err
+			r.docReaderIndex = 0
 		r.files = r.files[1:]
 		return r.Scan()
 	}
@@ -62,7 +63,7 @@ func (r *DocAllIterator) Scan() bool {
 
 func (r *DocAllIterator) Doc() *Doc {
 	d := r.docReader.Doc()
-	d.ID = r.docNumber*chunkSize + r.docReaderIndex
+	d.ID = uint32(r.docNumber*chunkSize + r.docReaderIndex)
 	r.docReaderIndex++
 	return d
 }

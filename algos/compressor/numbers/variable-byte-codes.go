@@ -2,7 +2,7 @@ package numberscompressor
 
 type VariableByteCodes struct{}
 
-func (v *VariableByteCodes) Compress(numbers []int) ([]byte, error) {
+func (v *VariableByteCodes) Compress(numbers []uint32) ([]byte, error) {
 	var buffer []byte
 	for _, number := range numbers {
 		var bytes []byte
@@ -20,12 +20,12 @@ func (v *VariableByteCodes) Compress(numbers []int) ([]byte, error) {
 	return buffer, nil
 }
 
-func (v *VariableByteCodes) Decompress(data []byte) ([]int, error) {
-	var numbers []int
-	var number int
+func (v *VariableByteCodes) Decompress(data []byte) ([]uint32, error) {
+	var numbers []uint32
+	var number uint32
 	for _, b := range data {
-		number = number*128 + int(b)%128
-		if int(b)&128 == 0 {
+		number = number*128 + uint32(b)%128
+		if uint32(b)&128 == 0 {
 			numbers = append(numbers, number)
 			number = 0
 		}

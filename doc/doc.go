@@ -17,7 +17,7 @@ var (
 )
 
 type DocInfo struct {
-	ID   int
+	ID   uint32
 	Name string
 	Path string
 }
@@ -39,7 +39,7 @@ func DocInfoFromString(s string) (*DocInfo, error) {
 		return nil, err
 	}
 	return &DocInfo{
-		ID:   (int)(id),
+		ID:   (uint32)(id),
 		Name: strings.Join(parts[2:], separator),
 		Path: parts[1],
 	}, nil

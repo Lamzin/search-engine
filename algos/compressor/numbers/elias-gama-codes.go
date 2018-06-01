@@ -6,13 +6,10 @@ import (
 
 type EliasGammaCodes struct{}
 
-func (*EliasGammaCodes) Compress(
-	numbers []int, prevLastByte byte, prevPayload int) (bytes []byte, bitPayload int, err error) {
-
-	bytes = append(bytes, prevLastByte)
-	bitPayload = (prevPayload - 1) % 8 + 1 // hack for 8%8=8
+func (*EliasGammaCodes) Compress(numbers []uint32) (bytes []byte, err error) {
+	bitPayload := 0
 	for _, number := range numbers {
-		leadingZeros := bits.Len32(uint32(number)) - 1
+		leadingZeros := bits.Len32(number) - 1
 		requiredAdditionalBytes := (bitPayload+leadingZeros+(leadingZeros+1)+7)/8 - len(bytes)
 		bytes = append(bytes, make([]byte, requiredAdditionalBytes)...)
 		bitPayload += leadingZeros
@@ -26,8 +23,8 @@ func (*EliasGammaCodes) Compress(
 	return
 }
 
-func (*EliasGammaCodes) Decompress(data []byte) ([]int, error) {
-	numbers := make([]int, 0)
+func (*EliasGammaCodes) Decompress(data []byte) ([]uint32, error) {
+	numbers := make([]uint32, 0)
 	bits := len(data) * 8
 	for i := 0; i < bits; {
 		leadingZeros := 0
@@ -37,7 +34,7 @@ func (*EliasGammaCodes) Decompress(data []byte) ([]int, error) {
 		if i+leadingZeros >= bits {
 			break
 		}
-		number := 0
+		var number uint32
 		for j := i; j < i+leadingZeros+1; j++ {
 			if data[j/8]&(1<<(uint)(7-j%8)) > 0 {
 				number |= 1 << (uint)(i+leadingZeros-j)
