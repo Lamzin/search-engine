@@ -6,7 +6,7 @@ import (
 
 type DeltaCoding struct{}
 
-func (DeltaCoding) Encode(numbers []uint32) []uint32 {
+func (DeltaCoding) Decode(numbers []uint32) []uint32 {
 	if numbers == nil {
 		return nil
 	}
@@ -16,7 +16,7 @@ func (DeltaCoding) Encode(numbers []uint32) []uint32 {
 	deltas := make([]uint32, len(numbers))
 	deltas[0] = numbers[0]
 	for i := 1; i < len(numbers); i++ {
-		if numbers[i-1] <= numbers[i] {
+		if numbers[i-1] >= numbers[i] {
 			panic(fmt.Sprintf("invalid input: %x", numbers))
 		}
 		deltas[i] = numbers[i] - numbers[i-1]
@@ -24,7 +24,7 @@ func (DeltaCoding) Encode(numbers []uint32) []uint32 {
 	return deltas
 }
 
-func (DeltaCoding) Decode(deltas []uint32) []uint32 {
+func (DeltaCoding) Encode(deltas []uint32) []uint32 {
 	if deltas == nil {
 		return nil
 	}

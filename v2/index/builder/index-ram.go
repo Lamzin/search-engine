@@ -3,7 +3,6 @@ package builder
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -45,29 +44,6 @@ func (arr lexemeInfoSorter) Less(i, j int) bool {
 	return arr[i].Lexeme < arr[j].Lexeme
 }
 
-type LexemeStorageInfo struct {
-	Lexeme             string
-	PostingsStartAt    uint32
-	FrequenciesStartAt uint32
-}
-
-func (info *LexemeStorageInfo) Decode() []byte {
-	data, _ := bigEndian.Compress([]uint32{info.PostingsStartAt, info.FrequenciesStartAt})
-	data = append(data, []byte(info.Lexeme)...)
-	return data
-}
-
-func (info *LexemeStorageInfo) Encode(data []byte) error {
-	if len(data) < 8 {
-		return fmt.Errorf("too short data: %x", data)
-	}
-	numbers, _ := bigEndian.Decompress(data[:8])
-	info.PostingsStartAt = numbers[0]
-	info.FrequenciesStartAt = numbers[1]
-	info.Lexeme = string(data[8:])
-	return nil
-}
-
 type IndexRAM struct {
 	lexemeInfo map[string]*LexemeInfo
 	records    uint32
@@ -75,7 +51,7 @@ type IndexRAM struct {
 
 	indexFileName string
 	infos         []*LexemeInfo
-	storageInfos  []*LexemeStorageInfo
+	storageInfos  []LexemeStorageInfo
 }
 
 func NewIndexRAM(workdir string) *IndexRAM {
@@ -128,36 +104,22 @@ func (index *IndexRAM) dumpPreparation() {
 		index.infos = append(index.infos, info)
 	}
 	sort.Sort(lexemeInfoSorter(index.infos))
-	index.storageInfos = make([]*LexemeStorageInfo, len(index.infos))
+	index.storageInfos = make([]LexemeStorageInfo, len(index.infos))
 	for i, info := range index.infos {
-		index.storageInfos[i] = &LexemeStorageInfo{Lexeme: info.Lexeme}
+		index.storageInfos[i] = LexemeStorageInfo{Lexeme: info.Lexeme}
 	}
-}
-
-type uint32Sorted []uint32
-
-func (arr uint32Sorted) Len() int {
-	return len(arr)
-}
-
-func (arr uint32Sorted) Swap(i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
-}
-
-func (arr uint32Sorted) Less(i, j int) bool {
-	return arr[i] < arr[j]
 }
 
 func (index *IndexRAM) dumpPostings() error {
 	var data []byte
 	for i, info := range index.infos {
-		sort.Sort(uint32Sorted(info.Postings))
+		sort.Sort(twoArrays{info.Postings, info.Frequencies})
 		delta := deltaCoding.Decode(info.Postings)
 		bytes, _ := bytesCoding.Compress(delta)
 		index.storageInfos[i].PostingsStartAt = uint32(len(data))
 		data = append(data, bytes...)
 	}
-	return writeBytesToFile(filepath.Join(index.workdir, index.indexFileName+".postings"), data)
+	return writeBytesToFile(filepath.Join(index.workdir, index.indexFileName+EXT_POSTINGS), data)
 }
 
 func (index *IndexRAM) dumpFrequencies() error {
@@ -167,26 +129,10 @@ func (index *IndexRAM) dumpFrequencies() error {
 		index.storageInfos[i].FrequenciesStartAt = uint32(len(data))
 		data = append(data, bytes...)
 	}
-	return writeBytesToFile(filepath.Join(index.workdir, index.indexFileName+".frequencies"), data)
+	return writeBytesToFile(filepath.Join(index.workdir, index.indexFileName+EXT_FREQUENCIES), data)
 }
 
 func (index *IndexRAM) dumpInfo() error {
-	var data []byte
-	for _, info := range index.storageInfos {
-		infoBytes := info.Decode()
-		lenInfoBytes, _ := bigEndian.Compress([]uint32{uint32(len(infoBytes))})
-		data = append(data, lenInfoBytes...)
-		data = append(data, infoBytes...)
-	}
-	return writeBytesToFile(filepath.Join(index.workdir, index.indexFileName+".info"), data)
-}
-
-func writeBytesToFile(filename string, data []byte) error {
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.Write(data)
-	return err
+	infos := LexemeStorageInfos(index.storageInfos)
+	return infos.Dump(filepath.Join(index.workdir, index.indexFileName))
 }
