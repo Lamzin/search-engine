@@ -113,7 +113,7 @@ func (index *IndexRAM) dumpPreparation() {
 func (index *IndexRAM) dumpPostings() error {
 	var data []byte
 	for i, info := range index.infos {
-		sort.Sort(twoArrays{info.Postings, info.Frequencies})
+		sort.Sort(MetaArrays{Postings: info.Postings, Frequencies: info.Frequencies})
 		delta := deltaCoding.Decode(info.Postings)
 		bytes, _ := bytesCoding.Compress(delta)
 		index.storageInfos[i].PostingsStartAt = uint32(len(data))

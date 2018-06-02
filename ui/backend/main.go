@@ -6,23 +6,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 
 	"github.com/lamzin/search-engine/algos/compressor/text"
 	"github.com/lamzin/search-engine/algos/lexeme"
 	"github.com/lamzin/search-engine/algos/postings"
 	"github.com/lamzin/search-engine/doc"
-	"github.com/lamzin/search-engine/index/reader"
+	"github.com/lamzin/search-engine/v2/index/builder"
 )
 
 var (
-	index indexreader.Reader
+	index *builder.IndexRAMStorage
 
 	articlesPath string
 	indexPath    string
 
-	parser *lexeme.Parser = lexeme.NewParser()
+	parser lexeme.Parser
 )
 
 type searchResult struct {
@@ -74,7 +73,7 @@ func search(w http.ResponseWriter, r *http.Request) {
 	}
 	results := make([]searchResult, len(docs))
 	for i, d := range docs {
-		results[i].ID = d.ID
+		results[i].ID = (int)(d.ID)
 		results[i].Title = d.Name
 		results[i].ShortBody = d.String()[:200]
 	}
@@ -95,8 +94,7 @@ func search(w http.ResponseWriter, r *http.Request) {
 
 func initIndex() {
 	var err error
-	index, err = indexreader.NewDBReader(indexPath)
-	if err != nil {
+	if index, err = builder.NewIndexRAMStorage(indexPath); err != nil {
 		panic(err)
 	}
 	fmt.Println("index ready")
@@ -106,33 +104,31 @@ func findDoc(text string, skip int, limit int) ([]*doc.Doc, int, error) {
 	lexemes := parser.Parse(text)
 	fmt.Println(text, "-->", lexemes)
 
-	postingsLists := make([][]int, 0)
+	metaArrays := make([]*builder.MetaArrays, 0)
 	for _, lexeme := range lexemes {
-		docIDs, err := index.GetDocIDs(lexeme)
+		metaArray, err := index.GetPostingsAndFrequencies(lexeme.Word)
 		if err != nil {
 			return nil, 0, err
 		}
-		postingsLists = append(postingsLists, docIDs)
+		metaArrays = append(metaArrays, metaArray)
 	}
 
-	docFrequency := postings.Intersect(postingsLists)
+	docIDs := postings.Intersect(metaArrays)
 
-	// statDocs(docIDs, lexeme)
+	docCount := len(docIDs)
+	docIDs = docIDs[skip : skip+limit]
 
-	docCount := len(docFrequency)
-	docFrequency = docFrequency[skip : skip+limit]
-
-	fmt.Println(docFrequency)
+	fmt.Println(docIDs)
 
 	var docs []*doc.Doc
 
-	for _, freq := range docFrequency {
+	for _, docID := range docIDs {
 		found := false
-		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa(freq.DocID/100)), textcompressor.GzipCompressor{})
+		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa((int)(docID)/100)), textcompressor.GzipCompressor{})
 		for i := 0; docreader.Scan(); i++ {
 			d := docreader.Doc()
-			if i == freq.DocID%100 {
-				d.ID = freq.DocID
+			if i == (int)(docID)%100 {
+				d.ID = docID
 				docs = append(docs, d)
 				found = true
 				break
@@ -144,66 +140,8 @@ func findDoc(text string, skip int, limit int) ([]*doc.Doc, int, error) {
 			return nil, 0, err
 		}
 		if !found {
-			return nil, 0, fmt.Errorf("doc not found: %d", freq.DocID)
+			return nil, 0, fmt.Errorf("doc not found: %d", docID)
 		}
 	}
 	return docs, docCount, nil
-}
-
-type Pair struct {
-	Value string
-	Key   int
-}
-
-type ByKey []Pair
-
-func (s ByKey) Len() int {
-	return len(s)
-}
-
-func (s ByKey) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s ByKey) Less(i, j int) bool {
-	return s[i].Key < s[j].Key
-}
-
-func statDocs(docIDs []int, lex string) {
-	if len(docIDs) > 1000 {
-		docIDs = docIDs[:1000]
-	}
-
-	parser := lexeme.NewParser()
-
-	pairs := make([]Pair, 0)
-
-	for ii, docID := range docIDs {
-		fmt.Printf("\r%d doc...", ii)
-		docreader := doc.NewDocCompressedReader(filepath.Join(articlesPath, strconv.Itoa(docID/100)), textcompressor.GzipCompressor{})
-		var d *doc.Doc
-		for i := 0; docreader.Scan(); i++ {
-			d = docreader.Doc()
-			if i == docID%100 {
-				break
-			}
-		}
-		docreader.Close()
-
-		lesx := parser.ParseDuplicates(d.String())
-		count := 0
-		for _, l := range lesx {
-			if l == lex {
-				count++
-			}
-		}
-		pairs = append(pairs, Pair{Key: count, Value: d.Name})
-	}
-
-	sort.Sort(ByKey(pairs))
-
-	for _, p := range pairs {
-		fmt.Println(p.Key, p.Value)
-	}
-
 }

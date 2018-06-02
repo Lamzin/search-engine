@@ -52,7 +52,7 @@ func NewIndexRAMStorage(indexPath string) (*IndexRAMStorage, error) {
 	}, nil
 }
 
-func (index *IndexRAMStorage) GetPostingsAndFrequencies(lexeme string) (*twoArrays, error) {
+func (index *IndexRAMStorage) GetPostingsAndFrequencies(lexeme string) (*MetaArrays, error) {
 	postings, err := index.GetPostings(lexeme)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (index *IndexRAMStorage) GetPostingsAndFrequencies(lexeme string) (*twoArra
 	if err != nil {
 		return nil, err
 	}
-	return &twoArrays{Key: postings, Value: frequencies}, nil
+	return &MetaArrays{Postings: postings, Frequencies: frequencies}, nil
 }
 
 func (index *IndexRAMStorage) GetPostings(lexeme string) ([]uint32, error) {
@@ -115,7 +115,7 @@ func (a *IndexRAMStorage) Merge(b *IndexRAMStorage, destinationPath string) erro
 
 	aiter, biter := 0, 0
 	for aiter+biter < len(a.Infos)+len(b.Infos) {
-		var cArrays *twoArrays
+		var cArrays *MetaArrays
 		var alexeme, blexeme, clexeme string
 		if aiter < len(a.Infos) {
 			alexeme = a.Infos[aiter].Lexeme
@@ -161,7 +161,7 @@ func (a *IndexRAMStorage) Merge(b *IndexRAMStorage, destinationPath string) erro
 		})
 
 		{
-			delta := deltaCoding.Decode(cArrays.Key)
+			delta := deltaCoding.Decode(cArrays.Postings)
 			bytes, _ := bytesCoding.Compress(delta)
 			cPostingsFileSize += (uint32)(len(bytes))
 			if _, err = postingsFile.Write(bytes); err != nil {
@@ -170,7 +170,7 @@ func (a *IndexRAMStorage) Merge(b *IndexRAMStorage, destinationPath string) erro
 		}
 
 		{
-			bytes, _ := eliasCoding.Compress(cArrays.Value)
+			bytes, _ := eliasCoding.Compress(cArrays.Frequencies)
 			cFrequenciesFileSize += (uint32)(len(bytes))
 			if _, err = frequenciesFile.Write(bytes); err != nil {
 				return err

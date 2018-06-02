@@ -75,7 +75,7 @@ func (r *IndexBuilderReducer) getIndexList(dirPath string) ([]string, error) {
 		uniqueFileNames[strings.Split(file.Name(), ".")[0]] = struct{}{}
 	}
 	var fileNames []string
-	for fileName, _ := range uniqueFileNames {
+	for fileName := range uniqueFileNames {
 		fileNames = append(fileNames, fileName)
 	}
 	return fileNames, nil
