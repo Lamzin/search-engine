@@ -20,6 +20,10 @@ type IndexBuilderMapper struct {
 
 	taskQueue chan *doc.Doc
 	ready     chan struct{}
+
+	docCount         int
+	lexemeCount      int
+	lexemeCountQueue chan int
 }
 
 func NewIndexBuilderMapper(docPath string, indexPath string) *IndexBuilderMapper {
@@ -27,12 +31,14 @@ func NewIndexBuilderMapper(docPath string, indexPath string) *IndexBuilderMapper
 		docPath:   docPath,
 		indexPath: indexPath,
 
-		taskQueue: make(chan *doc.Doc, mapQueueSize),
-		ready:     make(chan struct{}, 1),
+		taskQueue:        make(chan *doc.Doc, mapQueueSize),
+		ready:            make(chan struct{}, 1),
+		lexemeCountQueue: make(chan int, 1),
 	}
 }
 
 func (m *IndexBuilderMapper) Run() error {
+	go m.lexemeCounter()
 	for i := 0; i < mapWorkers; i++ {
 		go m.worker()
 	}
@@ -41,15 +47,26 @@ func (m *IndexBuilderMapper) Run() error {
 	for i := 0; iterator.Scan(); i++ {
 		d := iterator.Doc()
 		m.taskQueue <- d
-		fmt.Printf("\rdocs: %d", i)
 	}
 	close(m.taskQueue)
-
 	for i := 0; i < mapWorkers; i++ {
 		<-m.ready
 	}
 
+	close(m.lexemeCountQueue)
+	<-m.ready
+
+	fmt.Printf("\nmap finish successfull: docs %d, lexemes: %d\n\n", m.docCount, m.lexemeCount)
 	return nil
+}
+
+func (m *IndexBuilderMapper) lexemeCounter() {
+	for count := range m.lexemeCountQueue {
+		m.docCount++
+		m.lexemeCount += count
+		fmt.Printf("\rdocs: %d, lexemes: %d", m.docCount, m.lexemeCount)
+	}
+	m.ready <- struct{}{}
 }
 
 func (m *IndexBuilderMapper) worker() {
@@ -71,6 +88,7 @@ func (m *IndexBuilderMapper) worker() {
 				index = NewIndexRAM(m.indexPath)
 			}
 		}
+		m.lexemeCountQueue <- len(wordFrequencies)
 	}
 
 	if err := index.Dump(); err != nil {

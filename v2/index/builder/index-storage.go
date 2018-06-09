@@ -3,6 +3,8 @@ package builder
 import (
 	"fmt"
 	"io/ioutil"
+
+	"github.com/lamzin/search-engine/algos/compressor/text"
 )
 
 const (
@@ -10,6 +12,10 @@ const (
 	EXT_POSTINGS    = ".postings"
 	EXT_FREQUENCIES = ".frequencies"
 )
+
+var gzip textcompressor.GzipCompressor = textcompressor.GzipCompressor{
+	Level: textcompressor.BestCompression,
+}
 
 type LexemeStorageInfo struct {
 	Lexeme             string
@@ -44,14 +50,25 @@ func (infos *LexemeStorageInfos) Dump(fileName string) error {
 		data = append(data, lenInfoBytes...)
 		data = append(data, infoBytes...)
 	}
-	return writeBytesToFile(fileName+EXT_INFO, data)
-}
 
-func (infos *LexemeStorageInfos) Load(fileName string) error {
-	bytes, err := ioutil.ReadFile(fileName + EXT_INFO)
+	gzipedData, err := gzip.Compress(data)
 	if err != nil {
 		return err
 	}
+	return writeBytesToFile(fileName+EXT_INFO, gzipedData)
+}
+
+func (infos *LexemeStorageInfos) Load(fileName string) error {
+	gzipedData, err := ioutil.ReadFile(fileName + EXT_INFO)
+	if err != nil {
+		return err
+	}
+
+	bytes, err := gzip.Decompress(gzipedData)
+	if err != nil {
+		return err
+	}
+
 	for offset := 0; offset < len(bytes); offset += 4 {
 		numbers, _ := bigEndian.Decompress(bytes[offset : offset+4])
 		length := (int)(numbers[0])

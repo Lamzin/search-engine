@@ -13,6 +13,8 @@ import (
 
 const RAM_LIMIT = 10 * 1024 * 1024
 
+// const RAM_LIMIT = 1024
+
 var (
 	bigEndian   = numberscompressor.BigEndian{}
 	bytesCoding = numberscompressor.VariableByteCodes{}

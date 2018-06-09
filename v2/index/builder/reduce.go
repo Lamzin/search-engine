@@ -10,13 +10,30 @@ import (
 	"strings"
 )
 
+const (
+	mergeWorkers = 4
+)
+
+type mergeTask struct {
+	First  string
+	Second string
+}
+
 type IndexBuilderReducer struct {
 	indexPath string
+
+	mergeTasks       chan mergeTask
+	mergeTaskResults chan string
+
+	workersReady chan struct{}
 }
 
 func NewIndexBuilderReducer(indexPath string) *IndexBuilderReducer {
 	return &IndexBuilderReducer{
-		indexPath: indexPath,
+		indexPath:        indexPath,
+		mergeTasks:       make(chan mergeTask, mergeWorkers),
+		mergeTaskResults: nil,
+		workersReady:     make(chan struct{}, mergeWorkers),
 	}
 }
 
@@ -29,30 +46,56 @@ func (r *IndexBuilderReducer) Run() error {
 		return fmt.Errorf("no index files")
 	}
 
-	for len(indexFiles) > 1 {
-		aIndexName, bIndexName := indexFiles[0], indexFiles[1]
+	r.mergeTaskResults = make(chan string, len(indexFiles))
+
+	for i := 0; i < mergeWorkers; i++ {
+		go r.mergeWorker()
+	}
+
+	for _, indexFile := range indexFiles {
+		r.mergeTaskResults <- indexFile
+	}
+
+	for i := 1; i < len(indexFiles); i++ {
+		fmt.Printf("\rreduce tasks: %d   ", len(r.mergeTaskResults))
+		first := <-r.mergeTaskResults
+		second := <-r.mergeTaskResults
+		r.mergeTasks <- mergeTask{First: first, Second: second}
+	}
+	close(r.mergeTasks)
+
+	for i := 0; i < mergeWorkers; i++ {
+		<-r.workersReady
+	}
+
+	return nil
+}
+
+func (r IndexBuilderReducer) mergeWorker() {
+	for task := range r.mergeTasks {
+		aIndexName, bIndexName := task.First, task.Second
 		cIndexName := strconv.Itoa(rand.Intn(1 << 30))
-		indexFiles = append(indexFiles[2:], cIndexName)
 		aIndex, err := NewIndexRAMStorage(filepath.Join(r.indexPath, aIndexName))
 		if err != nil {
-			return err
+			panic(err)
 		}
 		bIndex, err := NewIndexRAMStorage(filepath.Join(r.indexPath, bIndexName))
 		if err != nil {
-			return err
+			panic(err)
 		}
 		if err = aIndex.Merge(bIndex, filepath.Join(r.indexPath, cIndexName)); err != nil {
-			return err
+			panic(err)
 		}
 
 		if err = r.removeIndexFiles(aIndexName); err != nil {
-			return err
+			panic(err)
 		}
 		if err = r.removeIndexFiles(bIndexName); err != nil {
-			return err
+			panic(err)
 		}
+		r.mergeTaskResults <- cIndexName
 	}
-	return nil
+	r.workersReady <- struct{}{}
 }
 
 func (r IndexBuilderReducer) removeIndexFiles(indexName string) error {
